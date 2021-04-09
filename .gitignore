@@ -1,0 +1,12 @@
+*.pyc
+*.gz
+*.log
+*.out
+*.txt
+*.json
+*.doc
+*.docx
+.idea/
+pkl_data/
+data/
+__pycache__/
