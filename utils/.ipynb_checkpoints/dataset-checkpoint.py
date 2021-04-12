@@ -92,7 +92,7 @@ class FileNxDataset(object):
         self.add_edges_with_weight(src_list, tgt_list, weight_mat)
 
         self.G = self.delete_isolated_nodes()
-
+        
     def save_nodestr_nodeindex(self):
         # nodestr_nodeindex : {"C_1": 1, "10001": 2}
         gene_set = {
@@ -120,14 +120,14 @@ class FileNxDataset(object):
         for key, value in self.cellstr_typestr.items():
             type_set |= {value}
         type_list = list(type_set)
-
+        
         for idx, typestr in enumerate(type_list):
             typestr_typeindex[typestr] = idx
         for key, value in self.cellstr_typestr.items():
             cellstr_typeindex[key] = type_list.index(value)
-
+            
         return cellstr_typeindex, typestr_typeindex
-
+    
     def save_gene_cell(self):
         # seperately store gene_name dict and cell_name dict for further use
         # genestr_geneindex : {"C_1": 0}
@@ -190,7 +190,7 @@ class FileNxDataset(object):
     def add_edges_with_weight(self, src_list, tgt_list, weight_mat):
         row_idxes, col_idxes = torch.nonzero(weight_mat > 0, as_tuple=True)
         pos_weight_num = row_idxes.shape[0]
-
+       
         edge_num = 0
         for idx in range(pos_weight_num):
             i = row_idxes[idx]
@@ -234,7 +234,7 @@ class SpeciesNxDataset(object):
                                   all edges between cells and genes which is not 0
               nodes with attributes 'bipartite', 'embed', 'type_name'(genes do not have)
               edges with attributes 'weight'
-
+           
            G': only choose #chosen_type_num types of cells sinice many types of cells have few samples,
                these types might cause data inbalance
 
@@ -256,14 +256,14 @@ class SpeciesNxDataset(object):
     def __init__(self, filebigraph_list):
         graph_list = [graph.G for graph in filebigraph_list]
         self.G = nx.compose_all(graph_list)
-
+        
         #chosen_typestr = ['Dendritic cell', 'Stromal cell', 'T cell', 'AT2 cell', 'Endothelial cell']
         #chosen_typestr = ['AT Cell']
         #self.G = self.extract_certain_classes(chosen_typestr)
-
+        
         chosen_type_num = 6
         self.G = self.extract_topk_classes_subgraph(chosen_type_num)
-
+        
         self.nodestr_nodeindex = self.save_nodestr_nodeindex()
         self.cellstr_typestr = self.save_cellstr_typestr()
         self.cellstr_typeindex, self.typestr_typeindex = self.from_str_to_index()
@@ -271,41 +271,39 @@ class SpeciesNxDataset(object):
         self.gene_num, self.cell_num = self.get_gene_cell_num()
         self.get_gene_embed()
         self.get_cell_embed()
-
+        
     def delete_isolated_nodes(self):
         self.G.remove_nodes_from(list(nx.isolates(self.G)))
         return self.G
-
+    
     def extract_certain_classes(self, chosen_typestr):
         deleted_cells = []
-
+        
         # get deleted cell nodes
         for n, d in self.G.nodes(data=True):
             if d['bipartite'] == 1 and d['type_name'] not in chosen_typestr:
                 deleted_cells.append(n)
-
+            
         # remove cell nodes
         for n in deleted_cells:
             self.G.remove_node(n)
         # remove isolated nodes
         self.G = self.delete_isolated_nodes()
         return self.G
-
+    
     def extract_topk_classes_subgraph(self, type_num=3):
-        typestr_list = list(nx.get_node_attributes(
-            self.G, "type_name").values())
+        typestr_list = list(nx.get_node_attributes(self.G, "type_name").values())
         typestr_typenum = {}
         for key in typestr_list:
             typestr_typenum[key] = typestr_typenum.get(key,
-                                                       0) + 1  # dict value default 0, add 1 each time
+                                 0) + 1  # dict value default 0, add 1 each time
 
         # choose class_num classes in labels, class_num classes has topk cells for labels
         chosen_typestr_tuples = sorted(typestr_typenum.items(),
-                                       key=lambda x: x[1])[-type_num:]
-        chosen_typestr = [dict_tuple[0]
-                          for dict_tuple in chosen_typestr_tuples]
+                                     key=lambda x: x[1])[-type_num:]
+        chosen_typestr = [dict_tuple[0] for dict_tuple in chosen_typestr_tuples]
         # delete nodes of not chosen typestr
-
+        
         deleted_nodes = []
         for n, d in self.G.nodes(data=True):
             if d['bipartite'] == 1 and d['type_name'] not in chosen_typestr:
@@ -314,7 +312,7 @@ class SpeciesNxDataset(object):
             self.G.remove_node(n)
         self.G = self.delete_isolated_nodes()
         return self.G
-
+        
     def save_nodestr_nodeindex(self):
         # nodestr_nodeindex : {"C_1": 1, "10001": 2}
         gene_set = {
@@ -342,14 +340,14 @@ class SpeciesNxDataset(object):
         for key, value in self.cellstr_typestr.items():
             type_set |= {value}
         type_list = list(type_set)
-
+        
         for idx, typestr in enumerate(type_list):
             typestr_typeindex[typestr] = idx
         for key, value in self.cellstr_typestr.items():
             cellstr_typeindex[key] = type_list.index(value)
-
+            
         return cellstr_typeindex, typestr_typeindex
-
+    
     def save_gene_cell(self):
         # seperately store gene_name dict and cell_name dict for further use
         # genestr_geneindex : {"C_1": 0}
@@ -396,24 +394,21 @@ class SpeciesNxDataset(object):
         dgl_G = self.make_bidirected(dgl_G)
         dgl_G.edata['weight'] = self.weight_norm(dgl_G)
         return dgl_G
-
+    
     def weight_norm(self, dgl_G):
         graph = dgl_G.local_var()
-        graph.edata['weight'] = dgl_G.edata['weight'].reshape(-1, 1)
-        graph.ndata['in_deg'] = graph.in_degrees(
-            range(graph.number_of_nodes())).float().unsqueeze(-1)
+        graph.edata['weight'] = dgl_G.edata['weight'].reshape(-1,1)
+        graph.ndata['in_deg'] = graph.in_degrees(range(graph.number_of_nodes())).float().unsqueeze(-1)
         graph.update_all(dgl.function.copy_edge('weight', 'edge_w'), dgl.function.sum('edge_w', 'total'),
                          lambda nodes: {'norm': nodes.data['total'] / nodes.data['in_deg']})
-        graph.apply_edges(
-            lambda edges: {'weight': edges.data['weight'] / edges.dst['norm']})
+        graph.apply_edges(lambda edges: {'weight': edges.data['weight'] / edges.dst['norm']})
         return graph.edata['weight']
-
+       
     def make_bidirected(self, dgl_G):
         src_node_tensor = dgl_G.edges()[0]
         tgt_node_tensor = dgl_G.edges()[1]
         weight_tensor = dgl_G.edata['weight']
-        dgl_G.add_edges(tgt_node_tensor, src_node_tensor,
-                        {'weight': weight_tensor})
+        dgl_G.add_edges(tgt_node_tensor, src_node_tensor, {'weight': weight_tensor})
         return dgl_G
 
     def print_embed(self):
@@ -457,8 +452,8 @@ class SpeciesDGLDataset(SpeciesNxDataset):
         self.G = self.nx_to_dgl()
         self.feature = self.extract_feature()
         self.label = self.extract_label()
-        self.train_index, self.valid_index, self.test_index = self.split_cell_nodes()
-
+        self.train_index, self.valid_index, self.test_index = self.split_cell_nodes() 
+    
     def extract_feature(self):
         # we need to change 'embed' into csr_matrix since it is too large to successfully pickle
         feature_tensor = csr_matrix(self.G.ndata['embed'])
@@ -479,6 +474,7 @@ class SpeciesDGLDataset(SpeciesNxDataset):
 
     def split_cell_nodes(self):
         # only calculate loss on cells
+        # TODO: here we suppose gene name is smaller than cell name
         cell_dataset = self.G.nodes()[self.gene_num:]
         train_subset, valid_subset, test_subset = dgl.data.utils.split_dataset(
             cell_dataset, shuffle=True, frac_list=[0.7, 0.2, 0.1])
@@ -504,10 +500,10 @@ class FlexibleSpeciesDGLDataset(object):
                 in practice, we might want to use part of genes cells or use part of its cell labels,
                 we need this class to provide a more flexible API for model running
        SpeciesDGLDataset (raw DGL data / raw label&index data) ---> UnFoldedDataset (raw DGL data / modified label&index data) ---> Runner (train/eval)
-
+       
        SpeciesDGLDataset is a general API
        FlexiDatbelSpeciesDGLDataset is a more specially made API
-
+       
     """
 
     def __init__(self, pkl_file_location):
@@ -518,58 +514,13 @@ class FlexibleSpeciesDGLDataset(object):
         self.cell_num = dataset.cell_num
         self.g, csr_features, self.labels, self.train_index, self.valid_index, self.test_index = dataset.load_data(
         )
-        assert self.g.number_of_nodes() == len(self.labels)
-        self.gene_index = []
-        self.cell_index = []
-        self.index_summary()
-
+    
         # modify feature
         self.features = self.feature_todense(csr_features)
-        # make it complete graph
-        # self.make_complete_graph()
-        #self.make_complete_bipartite_graph()
-
+    
     def feature_todense(self, csr_features):
         return torch.tensor(csr_features.todense())
 
-    def make_complete_graph(self):
-        full_g = dgl.from_networkx(nx.complete_graph(self.g.number_of_nodes()))
-
-        full_g_edata_shape = list(self.g.edata['weight'].shape)[1:]
-        full_g_edata_shape.insert(0, full_g.number_of_edges)
-
-        # choose one of the following 2 chooses to decide the construct way of the complete graph
-        # full_g.edata['weight'] = torch.zeros(full_g_edata_shape).type_as(self.g.edata['weight'])
-        min_weight = float(torch.min(full_g.edata['weight']))
-        # modify this number to control the fake weight value magnitude
-        full_g.edata['weight'] = torch.rand(full_g_edata_shape).type_as(
-            self.g.edata['weight']) * min_weight * 0.1
-
-        _ = self.g.find_edges(range(self.g.num_of_edges()))
-        full_g.edata["weight"][self.g.edge_ids(*_)] = self.g.edata['weight']
-        self.g = full_g
-    
-    def make_complete_bipartite_graph(self):
-        full_g_edata_shape = list(self.g.edata['weight'].shape)[1:]
-        min_weight = float(torch.min(self.g.edata['weight']))
-        for start_node in self.gene_index:
-            for end_node in self.cell_index:
-                if not self.g.has_edges_between(start_node,end_node) :
-                    self.g.add_edges(start_node,end_node)
-                    # choose one of the following 2 chooses to decide the construct way of the complete graph
-                    # weight = torch.zeros(full_g_edata_shape).type_as(self.g.edata['weight'])
-                    # modify this number to control the fake weight value magnitude
-                    weight = torch.rand(full_g_edata_shape).type_as(self.g.edata['weight']) * min_weight * 0.1
-                    self.g.edata['weight'][self.g.edge_ids(start_node,end_node)] = weight
-
-    def index_summary(self):
-        for i in range(len(self.labels)):
-            x = self.labels[i]
-            if x == -1:
-                self.gene_index.append(i)
-            else:
-                self.cell_index.append(i)
-
-
     def load_data(self):
         return self.g, self.features, self.labels, self.train_index, self.valid_index, self.test_index
+
