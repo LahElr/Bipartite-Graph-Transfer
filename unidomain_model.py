@@ -315,7 +315,7 @@ class WeightedGraphTransformerNet(nn.Module):
             hg = dgl.max_nodes(g, 'h')
         elif self.readout == "mean":
             hg = dgl.mean_nodes(g, 'h')
-        elif self.readout == 'None':
+        elif self.readout == 'None' or self.readout is None:
             hg = h
         else:
             hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
@@ -328,6 +328,10 @@ class WeightedGraphTransformerNet(nn.Module):
 
     def loss(self, pred, label):
         # calculating label weights for weighted loss computation
+        lahelr_print("loss: the scores and targets:",
+                     pred.shape, label.shape)
+        lahelr_print(
+            "loss: the pridicted labels and the true labels:", pred, label, sep='\n')
         V = label.size(0)
         label_count = torch.bincount(label)
         label_count = label_count[label_count.nonzero()].squeeze()
@@ -418,7 +422,7 @@ class GraphTransformerNet(nn.Module):
                                   self.feat_size, self.weight_size, dropout,
                                   self.layer_norm, self.batch_norm,
                                   self.residual))
-        self.MLP_layer = MLPReadout(out_dim,n_classes)
+        self.MLP_layer = MLPReadout(out_dim, n_classes)
 
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None):
         '''
@@ -460,7 +464,7 @@ class GraphTransformerNet(nn.Module):
 
         # convnets
         for conv in self.layers:
-            h, e = conv(g, h, e)
+            h = conv(g, h)
         g.ndata['h'] = h
 
         if self.readout == "sum":
@@ -469,17 +473,25 @@ class GraphTransformerNet(nn.Module):
             hg = dgl.max_nodes(g, 'h')
         elif self.readout == "mean":
             hg = dgl.mean_nodes(g, 'h')
+        elif self.readout == 'None' or self.readout is None:
+            hg = h
         else:
             hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
 
         lahelr_print("hg to be readout:", hg.shape)
 
-        return self.MLP_layer(hg)
+        hg = self.MLP_layer(hg)
+
+        lahelr_print("hg after readout:", hg.shape)
+
+        return hg
 
     def loss(self, scores, targets):
-        '''
-        nn.L1Loss()(scores, targets)
-        '''
         # loss = nn.MSELoss()(scores,targets)
-        loss = nn.L1Loss()(scores, targets)
+        lahelr_print("loss: the scores and targets:",
+                     scores.shape, targets.shape)
+        lahelr_print(
+            "loss: the pridicted labels and the true labels:", scores, targets, sep='\n')
+        # loss = nn.L1Loss()(scores, targets)
+        loss = nn.CrossEntropyLoss(scores, targets)
         return loss
