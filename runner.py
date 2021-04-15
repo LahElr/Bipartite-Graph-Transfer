@@ -19,7 +19,7 @@ from utils.dataset import load_from_pickle, FlexibleSpeciesDGLDataset
 from unidomain_model import WeightedGraphSAGE, WeightedGraphSAGEwithEmbed, GraphSAGE, GraphSAGEwithEmbed
 from unidomain_model import GraphTransformerNet, WeightedGraphTransformerNet
 from model_utils import NeighborSampler
-from utils import lahelr_print
+from utils import lahelr_print,lahelr_time
 
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
@@ -35,6 +35,7 @@ class Runner(object):
     """
 
     def __init__(self, args):
+        lahelr_print("start initializing Runner:",lahelr_time())
         self._set_seed(args.seed)
         self.device = args.device
 
@@ -190,6 +191,8 @@ class Runner(object):
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer, mode='min', factor=args.sch_factor, patience=args.sch_patience, verbose=True)
 
+        lahelr_print("finished initializing Runner:",lahelr_time())
+
     def _set_seed(self, seed):
         np.random.seed(seed)
         random.seed(seed)
@@ -270,11 +273,13 @@ class Runner(object):
         return (acc1, acc2)
 
     def train(self):
+        lahelr_print("start training:",lahelr_time())
         # Training loop
         scheduler_break = False
         for epoch in range(self.epochs):
             # one epoch start
             self.model.train()
+            lahelr_print("epoch No.",epoch,"start:",lahelr_time())
             losses = []
 
             dataloader = self.get_dataloader(self.train_index, self.batch_size,
@@ -365,7 +370,7 @@ class Runner(object):
 
         test_acc = self.test()
         print('Test Acc {:.4f} or {:.4f}'.format(test_acc[0], test_acc[1]))
-
+        lahelr_print("end training:",lahelr_time())
         return
 
     def eval(self):
@@ -409,6 +414,7 @@ class Runner(object):
                 labels += batch_labels.tolist()
                 preds += torch.argmax(batch_preds, dim=1).tolist()
 
+        lahelr_print("eval labels and preds:",labels,preds,"at time {}".format(lahelr_time()),sep='\n')
         print(classification_report(labels, preds))
         return (torch.mean(torch.Tensor(acc1s)),
                 torch.mean(torch.Tensor(acc2s)))
@@ -454,6 +460,8 @@ class Runner(object):
                 # print validation metric every batch
                 labels += batch_labels.tolist()
                 preds += torch.argmax(batch_preds, dim=1).tolist()
+
+        lahelr_print("test labels and preds:",labels,preds,"at time {}".format(lahelr_time()),sep='\n')
         print('TEST:')
         print(classification_report(labels, preds))
         return (torch.mean(torch.Tensor(acc1s)),
@@ -539,7 +547,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=10086)
     parser.add_argument("--use_scheduler", action='store_true', default=False)
     parser.add_argument("--pkl_file_location", type=str,
-                        default='./pkl_data/mouse_dgl_data_kidney.pkl')
+                        default='./pkl_data/toy_dgl_data.pkl')
 
     parser.add_argument("--feat_drop", type=float, default=0.0)
     parser.add_argument("--in_feat_drop", type=float, default=0.0)
@@ -551,7 +559,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--device", type=str, default='cuda:0')
+    parser.add_argument("--device", type=str, default='cuda:3')
 
     parser.add_argument("--weighted", action='store_true', default=True)
     parser.add_argument("--one_hot_feat", action='store_true', default=True)
@@ -566,3 +574,4 @@ if __name__ == '__main__':
     #transfer_runner = TransferRunner('./pkl_data/human_dgl_data.pkl', './pkl_data/mouse_dgl_data.pkl')
     runner = Runner(args)
     runner.train()
+
